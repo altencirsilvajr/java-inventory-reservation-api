@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: java-inventory-reservation-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5435/inventory}
+    username: ${DB_USERNAME:inventory}
+    password: ${DB_PASSWORD:inventory}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6385}
+      timeout: 500ms
+  mvc:
+    problemdetails:
+      enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+reservation:
+  expiration-interval: ${EXPIRATION_INTERVAL_MS:30000}
+logging:
+  pattern:
+    console: '{"timestamp":"%d{yyyy-MM-dd''T''HH:mm:ss.SSSXXX}","level":"%level","logger":"%logger{36}","correlationId":"%X{correlationId}","message":"%replace(%msg){''[\r\n]+'','' ''}"}%n'
