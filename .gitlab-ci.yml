@@ -1,0 +1,17 @@
+stages: [test, build]
+
+backend:
+  stage: test
+  image: eclipse-temurin:17-jdk
+  script: ["./mvnw verify"]
+
+frontend:
+  stage: test
+  image: node:22.22.3
+  script: ["cd frontend", "npm ci", "npm test -- --watch=false", "npm run build"]
+
+compose:
+  stage: build
+  image: docker:29
+  services: ["docker:29-dind"]
+  script: ["docker compose config --quiet"]
