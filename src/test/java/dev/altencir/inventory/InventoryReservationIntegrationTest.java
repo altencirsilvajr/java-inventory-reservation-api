@@ -2,14 +2,21 @@ package dev.altencir.inventory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import dev.altencir.inventory.application.AvailabilityCache;
 import dev.altencir.inventory.application.InventoryReservationService;
+import dev.altencir.inventory.application.ReservationExpirationCoordinator;
 import dev.altencir.inventory.domain.InsufficientStockException;
 import dev.altencir.inventory.infrastructure.InventoryItemRepository;
+import dev.altencir.inventory.infrastructure.ReservationRepository;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.time.Clock;
+import java.time.Instant;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,7 +43,17 @@ class InventoryReservationIntegrationTest {
 
     @Autowired InventoryReservationService service;
     @Autowired InventoryItemRepository items;
+    @Autowired ReservationRepository reservationRecords;
+    @Autowired ReservationExpirationCoordinator expiration;
     @MockitoBean AvailabilityCache cache;
+    @MockitoBean Clock clock;
+
+    @BeforeEach
+    void setClock() {
+        reservationRecords.deleteAll();
+        items.deleteAll();
+        when(clock.instant()).thenReturn(Instant.parse("2026-08-05T10:00:00Z"));
+    }
 
     @Test
     void repeatedIdempotencyKeyReturnsOriginalReservationWithoutConsumingTwice() {
@@ -84,6 +101,17 @@ class InventoryReservationIntegrationTest {
         assertThat(availability.onHandQuantity()).isEqualTo(3);
         assertThat(availability.reservedQuantity()).isZero();
         assertThatThrownBy(() -> service.cancel(confirmed.reservation().id())).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void expirationReleasesStockAndInvalidatesCacheAfterCommit() {
+        var item = service.createItem("EXPIRE-" + UUID.randomUUID(), 4);
+        service.reserve(item.itemId(), 3, "expire-" + UUID.randomUUID());
+        when(clock.instant()).thenReturn(Instant.parse("2026-08-05T10:06:00Z"));
+
+        assertThat(expiration.expirePending()).isEqualTo(1);
+        assertThat(items.findById(item.itemId()).orElseThrow().availableQuantity()).isEqualTo(4);
+        verify(cache, org.mockito.Mockito.atLeast(3)).evict(item.itemId());
     }
 
     private String reserveAfter(CountDownLatch start, UUID itemId, String key) throws InterruptedException {
