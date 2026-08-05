@@ -1,0 +1,51 @@
+<header>
+  <p class="eyebrow">JAVA 17 · SPRING BOOT 3.5 · ANGULAR 22</p>
+  <h1>Inventory Reservation Lab</h1>
+  <p>Observe o caminho do saldo sob idempotência, locking PostgreSQL e cache Redis derivável.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>1. Criar estoque</h2>
+    <form [formGroup]="itemForm" (ngSubmit)="createItem()">
+      <label>SKU <input formControlName="sku"></label>
+      <label>Saldo inicial <input type="number" formControlName="initialQuantity"></label>
+      <button [disabled]="busy() || itemForm.invalid">Criar item</button>
+    </form>
+  </section>
+
+  <section class="panel availability" *ngIf="availability() as item">
+    <div><span>SKU</span><strong>{{ item.sku }}</strong></div>
+    <div><span>Em estoque</span><strong>{{ item.onHandQuantity }}</strong></div>
+    <div><span>Reservado</span><strong>{{ item.reservedQuantity }}</strong></div>
+    <div class="accent"><span>Disponível</span><strong>{{ item.availableQuantity }}</strong></div>
+  </section>
+
+  <section class="panel" *ngIf="availability()">
+    <h2>2. Disputar unidades</h2>
+    <form [formGroup]="reserveForm" (ngSubmit)="reserve()">
+      <label>Quantidade <input type="number" formControlName="quantity"></label>
+      <label>Idempotency-Key <input formControlName="idempotencyKey"></label>
+      <button [disabled]="busy() || reserveForm.invalid">Reservar</button>
+      <button type="button" class="secondary" [disabled]="busy() || !availability()?.availableQuantity" (click)="race()">Executar corrida</button>
+      <button type="button" class="ghost" [disabled]="busy()" (click)="expire()">Expirar pendências</button>
+    </form>
+  </section>
+
+  <section class="panel" *ngIf="reservations().length">
+    <h2>Reservas</h2>
+    <article *ngFor="let reservation of reservations()">
+      <div><code>{{ reservation.id }}</code><br><strong>{{ reservation.quantity }} un. · {{ reservation.status }}</strong></div>
+      <div class="actions" *ngIf="reservation.status === 'PENDING'">
+        <button [disabled]="busy()" (click)="transition(reservation, 'confirm')">Confirmar</button>
+        <button class="secondary" [disabled]="busy()" (click)="transition(reservation, 'cancel')">Cancelar</button>
+      </div>
+    </article>
+  </section>
+
+  <section class="panel terminal">
+    <h2>Timeline HTTP</h2>
+    <p *ngIf="!timeline().length">As chamadas reais da API aparecerão aqui.</p>
+    <code *ngFor="let event of timeline()">{{ event }}</code>
+  </section>
+</main>
