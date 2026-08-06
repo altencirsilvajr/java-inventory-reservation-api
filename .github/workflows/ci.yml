@@ -8,7 +8,7 @@ jobs:
   traceability:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - name: Validate every non-merge increment
         run: for commit in $(git rev-list --no-merges --reverse HEAD); do ./scripts/traceability-gate.sh "$commit"; done
@@ -16,8 +16,8 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -27,13 +27,15 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 22.22.3
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+        working-directory: frontend
+      - run: npm audit --audit-level=moderate
         working-directory: frontend
       - run: npm test -- --watch=false
         working-directory: frontend
@@ -43,7 +45,7 @@ jobs:
   containers:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: docker compose config --quiet
       - name: Validate Kubernetes manifests
         run: docker run --rm -v "$PWD/deploy:/deploy:ro" ghcr.io/yannh/kubeconform:v0.7.0 -strict -summary /deploy/k8s
